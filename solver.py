@@ -9,6 +9,7 @@ import os
 from os.path import join, basename, dirname, split
 import time
 import datetime
+import data_loader
 from data_loader import to_categorical
 import librosa
 from utils import *
@@ -68,7 +69,8 @@ class Solver(object):
 
     def build_model(self):
         """Create a generator and a discriminator."""
-        self.G = Generator(num_speakers=self.num_speakers)
+        # self.G = Generator(num_speakers=self.num_speakers)
+        self.G = Generator()
         self.D = Discriminator(num_speakers=self.num_speakers)
 
         self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
@@ -206,6 +208,25 @@ class Solver(object):
             spk_label_trg = spk_label_trg.to(self.device)             # Target spk labels for classification loss for G.
             spk_c_trg = spk_c_trg.to(self.device)                     # Target spk conditioning.
 
+            # TODO: turn spc_c_trg into mfcc
+            spk_trg_names = [data_loader.idx2spk[idx] for idx in spk_label_trg.data.numpy()]
+            spk_trg_mcs = []
+            for spk_trg_name in spk_trg_names:
+                path = 'data/concatted_audio/mc/' + spk_trg_name + '_concatted.npy'
+                trg_mc = np.load(path)
+                sample_len = 8192
+                assert trg_mc.shape[0] - sample_len >= 0
+                s = np.random.randint(0, trg_mc.shape[0] - sample_len + 1)
+                next_mc = trg_mc[s:s + sample_len, :]
+                #next_mc.unsqueeze_(1)
+                spk_trg_mcs.append(next_mc)
+
+            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs)
+            spk_trg_mcs.unsqueeze_(1)
+            spk_trg_mcs.transpose_(2, 3)
+            # import pdb
+            # pdb.set_trace()
+
             # =================================================================================== #
             #                             2. Train the discriminator                              #
             # =================================================================================== #
@@ -217,7 +238,9 @@ class Solver(object):
             
 
             # Compute loss with fake mc feats.
-            mc_fake = self.G(mc_real, spk_c_trg)
+            # TODO: replace spk_c_trg with mfcc
+            #mc_fake = self.G(mc_real, spk_c_trg)
+            mc_fake = self.G(mc_real, spk_trg_mcs)
             out_src, out_cls_spks = self.D(mc_fake.detach())
             d_loss_fake = torch.mean(out_src)
 
@@ -246,13 +269,17 @@ class Solver(object):
             
             if (i+1) % self.n_critic == 0:
                 # Original-to-target domain.
-                mc_fake = self.G(mc_real, spk_c_trg)
+                # TODO: replace spk_c_trg with mfcc
+                # mc_fake = self.G(mc_real, spk_c_trg)
+                mc_fake = self.G(mc_real, spk_trg_mcs)
                 out_src, out_cls_spks = self.D(mc_fake)
                 g_loss_fake = - torch.mean(out_src)
                 g_loss_cls_spks = self.classification_loss(out_cls_spks, spk_label_trg)
 
                 # Target-to-original domain.
-                mc_reconst = self.G(mc_fake, spk_c_org)
+                # TODO: replace spk_c_trg with mfcc
+                # mc_reconst = self.G(mc_fake, spk_c_org)
+                mc_reconst = self.G(mc_fake, spk_trg_mcs)
                 g_loss_rec = torch.mean(torch.abs(mc_real - mc_reconst))
 
                 # Backward and optimize.
@@ -301,6 +328,7 @@ class Solver(object):
                         coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(self.device)
                         conds = torch.FloatTensor(self.test_loader.spk_c_trg).to(self.device)
                         # print(conds.size())
+                        # TODO: replace conds with mfcc
                         coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
                         coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * self.test_loader.mcep_std_trg + self.test_loader.mcep_mean_trg
                         coded_sp_converted = np.ascontiguousarray(coded_sp_converted)

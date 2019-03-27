@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 # from data_loader import get_loader
+from torchsummary import summary
 
 
 class ResidualBlock(nn.Module):
@@ -21,42 +22,108 @@ class ResidualBlock(nn.Module):
 
 class Generator(nn.Module):
     """Generator network."""
-    def __init__(self, conv_dim=64, num_speakers=10, repeat_num=6):
+    #    def __init__(self, conv_dim=64, num_speakers=10, repeat_num=6):
+    def __init__(self, conv_dim=64, repeat_num=6):
         super(Generator, self).__init__()
-        c_dim = num_speakers
-        layers = []
-        layers.append(nn.Conv2d(1+c_dim, conv_dim, kernel_size=(3, 9), padding=(1, 4), bias=False))
-        layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
-        layers.append(nn.ReLU(inplace=True))
+        #c_dim = num_speakers
+
+        src_layers = []
+        src_layers.append(nn.Conv2d(1, conv_dim, kernel_size=(3, 9), padding=(1, 4), bias=False))
+        src_layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
+        src_layers.append(nn.ReLU(inplace=True))
 
         # Down-sampling layers.
         curr_dim = conv_dim
         for i in range(2):
-            layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=(4, 8), stride=(2, 2), padding=(1, 3), bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
+            src_layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=(4, 8), stride=(2, 2), padding=(1, 3), bias=False))
+            src_layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
+            src_layers.append(nn.ReLU(inplace=True))
             curr_dim = curr_dim * 2
+
+        self.src_downsample = nn.Sequential(*src_layers)
+
+        trg_layers = []
+        trg_layers.append(nn.Conv2d(1, conv_dim, kernel_size=(3, 9), stride=(1, 4), padding=(1, 4), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+
+        # Down-sampling layers.
+        curr_dim = conv_dim
+        for i in range(2):
+            trg_layers.append(
+                nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=(4, 8), stride=(2, 4), padding=(1, 3), bias=False))
+            trg_layers.append(nn.InstanceNorm2d(curr_dim * 2, affine=True, track_running_stats=True))
+            trg_layers.append(nn.ReLU(inplace=True))
+            curr_dim = curr_dim * 2
+
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim, kernel_size=(3, 8), stride=(1, 2), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        curr_dim = curr_dim
+
+        self.trg_downsample = nn.Sequential(*trg_layers)
+
+        #
+        # layers = []
+        # layers.append(nn.Conv2d(1+c_dim, conv_dim, kernel_size=(3, 9), padding=(1, 4), bias=False))
+        # layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
+        # layers.append(nn.ReLU(inplace=True))
+        #
+        # # Down-sampling layers.
+        # curr_dim = conv_dim
+        # for i in range(2):
+        #     layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=(4, 8), stride=(2, 2), padding=(1, 3), bias=False))
+        #     layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
+        #     layers.append(nn.ReLU(inplace=True))
+        #     curr_dim = curr_dim * 2
+
+        main_layers = []
+        # Multiply dim by 2 since we concat the src and trg vectors.
+        curr_dim *= 2
 
         # Bottleneck layers.
         for i in range(repeat_num):
-            layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
+            main_layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
 
         # Up-sampling layers.
         for i in range(2):
-            layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
+            main_layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
+            main_layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
+            main_layers.append(nn.ReLU(inplace=True))
             curr_dim = curr_dim // 2
 
-        layers.append(nn.Conv2d(curr_dim, 1, kernel_size=7, stride=1, padding=3, bias=False))
-        self.main = nn.Sequential(*layers)
+        # TODO: could add more convs to upsample more gradually. Currently going from 128 channel -> 1 channel directly.
+        main_layers.append(nn.Conv2d(curr_dim, 1, kernel_size=7, stride=1, padding=3, bias=False))
+        self.main = nn.Sequential(*main_layers)
 
-    def forward(self, x, c):
-        # Replicate spatially and concatenate domain information.
-        c = c.view(c.size(0), c.size(1), 1, 1)
-        c = c.repeat(1, 1, x.size(2), x.size(3))
-        x = torch.cat([x, c], dim=1)
-        return self.main(x)
+        # # Bottleneck layers.
+        # for i in range(repeat_num):
+        #     layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
+        #
+        # # Up-sampling layers.
+        # for i in range(2):
+        #     layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
+        #     layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
+        #     layers.append(nn.ReLU(inplace=True))
+        #     curr_dim = curr_dim // 2
+        #
+        # layers.append(nn.Conv2d(curr_dim, 1, kernel_size=7, stride=1, padding=3, bias=False))
+        # self.main = nn.Sequential(*layers)
+
+    # def forward(self, x, c):
+    #     # Replicate spatially and concatenate domain information.
+    #     c = c.view(c.size(0), c.size(1), 1, 1)
+    #     c = c.repeat(1, 1, x.size(2), x.size(3))
+    #     x = torch.cat([x, c], dim=1)
+    #     return self.main(x)
+
+    def forward(self, src, trg):
+        src_embed = self.src_downsample(src)
+        trg_embed = self.trg_downsample(trg)
+        concat = torch.cat([src_embed, trg_embed], dim=1)
+        return self.main(concat)
+
 
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""

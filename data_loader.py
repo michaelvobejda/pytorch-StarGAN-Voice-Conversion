@@ -21,6 +21,8 @@ min_length = 256   # Since we slice 256 frames from each utterance when training
 # Build a dict useful when we want to get one-hot representation of speakers.
 speakers = ['p262', 'p272', 'p229', 'p232', 'p292', 'p293', 'p360', 'p361', 'p248', 'p251']
 spk2idx = dict(zip(speakers, range(len(speakers))))
+# Added this reverse lookup dict to convert a speaker's index to their name.
+idx2spk = {v: k for k, v in spk2idx.items()}
 
 def to_categorical(y, num_classes=None):
     """Converts a class vector (integers) to binary class matrix.
@@ -60,7 +62,7 @@ class MyDataset(data.Dataset):
             mc = np.load(f)
             if mc.shape[0] <= min_length:
                 print(f)
-                raise RuntimeError(f"The data may be corrupted! We need all MCEP features having more than {min_length} frames!") 
+                raise RuntimeError(f"The data may be corrupted! We need all MCEP features having more than {min_length} frames!")
 
     def rm_too_short_utt(self, mc_files, min_length=min_length):
         new_mc_files = []
@@ -87,6 +89,9 @@ class MyDataset(data.Dataset):
         mc = np.transpose(mc, (1, 0))  # (T, D) -> (D, T), since pytorch need feature having shape
         # to one-hot
         spk_cat = np.squeeze(to_categorical([spk_idx], num_classes=len(speakers)))
+
+        # import pdb
+        # pdb.set_trace()
 
         return torch.FloatTensor(mc), torch.LongTensor([spk_idx]).squeeze_(), torch.FloatTensor(spk_cat)
         

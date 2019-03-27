@@ -14,6 +14,8 @@ from sklearn.model_selection import train_test_split
 import glob
 from os.path import join, basename
 import subprocess
+from time import time
+
 
 # def resample(spk, origin_wavpath, target_wavpath):
 #     wavfiles = [i for i in os.listdir(join(origin_wavpath, spk)) if i.endswith(".wav")]
@@ -48,23 +50,33 @@ def get_spk_world_feats(spk_fold_path, mc_dir_train, mc_dir_test, sample_rate=16
     paths = glob.glob(join(spk_fold_path, '*.wav'))
     spk_name = basename(spk_fold_path)
     train_paths, test_paths = split_data(paths)
+    if not train_paths:
+        train_paths = test_paths
+        test_paths = []
     f0s = []
     coded_sps = []
     for wav_file in train_paths:
+        t0 = time()
         f0, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
+        #print(f'World encode took {time() - t0} seconds')
         f0s.append(f0)
         coded_sps.append(coded_sp)
     log_f0s_mean, log_f0s_std = logf0_statistics(f0s)
     coded_sps_mean, coded_sps_std = coded_sp_statistics(coded_sps)
-    np.savez(join(mc_dir_train, spk_name+'_stats.npz'), 
+    np.savez(join(mc_dir_train, spk_name+'_stats.npz'),
             log_f0s_mean=log_f0s_mean,
             log_f0s_std=log_f0s_std,
             coded_sps_mean=coded_sps_mean,
             coded_sps_std=coded_sps_std)
     
-    for wav_file in tqdm(train_paths):
+    #for wav_file in tqdm(train_paths):
+    for i in range(len(train_paths)):
+        wav_file = train_paths[i]
+        coded_sp = coded_sps[i]
         wav_nam = basename(wav_file)
-        f0, timeaxis, sp, ap, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
+        #_, _, _, _, coded_sp = world_encode_wav(wav_file, fs=sample_rate)
+        # import pdb
+        # pdb.set_trace()
         normed_coded_sp = normalize_coded_sp(coded_sp, coded_sps_mean, coded_sps_std)
         np.save(join(mc_dir_train, wav_nam.replace('.wav', '.npy')), normed_coded_sp, allow_pickle=False)
     
@@ -99,11 +111,12 @@ if __name__ == '__main__':
     sample_rate = 16000
     # origin_wavpath = argv.origin_wavpath
     #target_wavpath = argv.target_wavpath
-    target_wavpath = '.data/VCTK-Corpus/synth_audio/'
+    #target_wavpath = '.data/VCTK-Corpus/synth_audio/'
+    target_wavpath = 'data/VCTK-Corpus/wav16'
     # mc_dir_train = argv.mc_dir_train
     mc_dir_train = '.data/mc/train'
     # mc_dir_test = argv.mc_dir_test
-    mc_dir_test = '/data/mc/test'
+    mc_dir_test = '.data/mc/test'
     # num_workers = argv.num_workers if argv.num_workers is not None else cpu_count()
     # num_workers = cpu_count()
 
@@ -114,7 +127,8 @@ if __name__ == '__main__':
     # speaker_used = ['262', '272', '229', '232', '292', '293', '360', '361', '248', '251']
     # speaker_used = ['p'+i for i in speaker_used]
     speaker_used = ['225', '226', '227', '228', '229', '247']
-    speaker_used = ['SYNTH_p' + i for i in speaker_used]
+    # speaker_used = ['SYNTH_p' + i for i in speaker_used]
+    speaker_used = ['p' + i for i in speaker_used]
 
     ## Next we are to extract the acoustic features (MCEPs, lf0) and compute the corresponding stats (means, stds). 
     # Make dirs to contain the MCEPs
@@ -132,11 +146,16 @@ if __name__ == '__main__':
 
     print('Getting results list')
     futures = []
+    # for spk in speaker_used:
+    #     spk_path = os.path.join(work_dir, spk)
+    #     futures.append(executor.submit(partial(get_spk_world_feats, spk_path, mc_dir_train, mc_dir_test, sample_rate)))
+    # #result_list = [future.result() for future in tqdm(futures)]
+    # result_list = [future.result() for future in futures]
+    result_list = []
     for spk in speaker_used:
         spk_path = os.path.join(work_dir, spk)
-        futures.append(executor.submit(partial(get_spk_world_feats, spk_path, mc_dir_train, mc_dir_test, sample_rate)))
-    #result_list = [future.result() for future in tqdm(futures)]
-    result_list = [future.result() for future in futures]
+        result_list.append(get_spk_world_feats(spk_path, mc_dir_train, mc_dir_test, sample_rate))
+
     print(result_list)
     sys.exit(0)
 
