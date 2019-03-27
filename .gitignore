@@ -1,3 +1,13 @@
-.DS_Store
-.vscode/
+.idea/
+Python-Wrapper-for-World-Vocoder/
+__pycache__/
 env/
+.vscode/
+
+*.swp
+
+data/*
+!data/mc
+
+models/
+logs/
