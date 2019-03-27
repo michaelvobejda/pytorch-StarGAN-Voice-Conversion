@@ -1,0 +1,12 @@
+.idea/
+Python-Wrapper-for-World-Vocoder/
+__pycache__/
+env/
+
+*.swp
+
+data/*
+!data/mc
+
+models/
+logs/
