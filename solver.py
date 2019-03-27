@@ -194,6 +194,9 @@ class Solver(object):
                 data_iter = iter(train_loader)
                 mc_real, spk_label_org, spk_c_org = next(data_iter)
 
+            # import pdb
+            # pdb.set_trace()
+
             mc_real.unsqueeze_(1) # (B, D, T) -> (B, 1, D, T) for conv2d
 
             # Generate target domain labels randomly.

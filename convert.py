@@ -40,7 +40,6 @@ class TestDataset(object):
         self.src_spk_stats = np.load(join(config.train_data_dir, f'{config.src_spk}_stats.npz'))
         self.src_wav_dir = f'{config.wav_dir}/{config.src_spk}'
 
-        
         self.trg_spk_stats = np.load(join(config.train_data_dir, f'{config.trg_spk}_stats.npz'))
 
         self.logf0s_mean_src = self.src_spk_stats['log_f0s_mean']
@@ -67,10 +66,10 @@ class TestDataset(object):
         return batch_data 
 
 
-def load_wav(wavfile, sr=16000):
-    wav, _ = librosa.load(wavfile, sr=sr, mono=True)
-    return wav_padding(wav, sr=sr, frame_period=5, multiple = 4)  # TODO
-    # return wav
+# def load_wav(wavfile, sr=16000):
+#     wav, _ = librosa.load(wavfile, sr=sr, mono=True)
+#     return wav_padding(wav, sr=sr, frame_period=5, multiple = 4)  # TODO
+#     # return wav
 
 def test(config):
     os.makedirs(join(config.convert_dir, str(config.resume_iters)), exist_ok=True)
