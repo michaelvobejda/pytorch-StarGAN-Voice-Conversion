@@ -160,11 +160,13 @@ class Solver(object):
         train_loader = self.train_loader
 
         data_iter = iter(train_loader)
+    
+        # import pdb
+        # pdb.set_trace()
 
         # Read a batch of testdata
-        test_wavfiles = self.test_loader.get_batch_test_data(batch_size=4)
-        test_wavs = [self.load_wav(wavfile) for wavfile in test_wavfiles]
-
+        # test_wavfiles = self.test_loader.get_batch_test_data(batch_size=4)
+        # test_wavs = [self.load_wav(wavfile) for wavfile in test_wavfiles]
         # Determine whether do copysynthesize when first do training-time conversion test.
         cpsyn_flag = [True, False][0]
         # f0, timeaxis, sp, ap = world_decompose(wav = wav, fs = sampling_rate, frame_period = frame_period)
@@ -209,7 +211,7 @@ class Solver(object):
             spk_c_trg = spk_c_trg.to(self.device)                     # Target spk conditioning.
 
             # TODO: turn spc_c_trg into mfcc
-            spk_trg_names = [data_loader.idx2spk[idx] for idx in spk_label_trg.data.numpy()]
+            spk_trg_names = [data_loader.idx2spk[idx] for idx in spk_label_trg.data.cpu().numpy()]
             spk_trg_mcs = []
             for spk_trg_name in spk_trg_names:
                 path = 'data/concatted_audio/mc/' + spk_trg_name + '_concatted.npy'
@@ -221,7 +223,7 @@ class Solver(object):
                 #next_mc.unsqueeze_(1)
                 spk_trg_mcs.append(next_mc)
 
-            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs)
+            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs).to(self.device)
             spk_trg_mcs.unsqueeze_(1)
             spk_trg_mcs.transpose_(2, 3)
             # import pdb
