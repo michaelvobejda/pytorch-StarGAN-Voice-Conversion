@@ -43,24 +43,59 @@ class Generator(nn.Module):
         self.src_downsample = nn.Sequential(*src_layers)
 
         trg_layers = []
+        # mb = minibatch size
+        # Assume conv_dim = 64 in dimension calculations.
+        # (mb, 1, 36, 8192)
         trg_layers.append(nn.Conv2d(1, conv_dim, kernel_size=(3, 9), stride=(1, 4), padding=(1, 4), bias=False))
         trg_layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
         trg_layers.append(nn.ReLU(inplace=True))
-
-        # Down-sampling layers.
         curr_dim = conv_dim
-        for i in range(2):
-            trg_layers.append(
-                nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=(4, 8), stride=(2, 4), padding=(1, 3), bias=False))
-            trg_layers.append(nn.InstanceNorm2d(curr_dim * 2, affine=True, track_running_stats=True))
-            trg_layers.append(nn.ReLU(inplace=True))
-            curr_dim = curr_dim * 2
+        # (mb, 64, 36, 2048)
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=(4, 8), stride=(2, 4), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim * 2, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        curr_dim = curr_dim * 2
+        # (mb, 128, 18, 512)
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=(4, 8), stride=(2, 4), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim * 2, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        curr_dim = curr_dim * 2
+        # (mb, 256, 9, 128)
+       
+        # Down-sampling layers.
+        # curr_dim = conv_dim
+        # for i in range(2):
+        #     trg_layers.append(
+        #         nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=(4, 8), stride=(2, 4), padding=(1, 3), bias=False))
+        #     trg_layers.append(nn.InstanceNorm2d(curr_dim * 2, affine=True, track_running_stats=True))
+        #     trg_layers.append(nn.ReLU(inplace=True))
+        #     curr_dim = curr_dim * 2
 
         trg_layers.append(
             nn.Conv2d(curr_dim, curr_dim, kernel_size=(3, 8), stride=(1, 2), padding=(1, 3), bias=False))
         trg_layers.append(nn.InstanceNorm2d(curr_dim, affine=True, track_running_stats=True))
         trg_layers.append(nn.ReLU(inplace=True))
-        curr_dim = curr_dim
+        # (mb, 256, 9, 64)
+
+        # could max pool to reduce height without requiring another conv layer.
+
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim, kernel_size=(3, 8), stride=(1, 4), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        # (mb, 256, 9, 16)
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim, kernel_size=(3, 8), stride=(1, 4), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        # (mb, 256, 9, 4)
+        trg_layers.append(
+            nn.Conv2d(curr_dim, curr_dim, kernel_size=(3, 8), stride=(1, 4), padding=(1, 3), bias=False))
+        trg_layers.append(nn.InstanceNorm2d(curr_dim, affine=True, track_running_stats=True))
+        trg_layers.append(nn.ReLU(inplace=True))
+        # (mb, 256, 9, 1)
 
         self.trg_downsample = nn.Sequential(*trg_layers)
 
@@ -80,7 +115,7 @@ class Generator(nn.Module):
 
         main_layers = []
         # Multiply dim by 2 since we concat the src and trg vectors.
-        #curr_dim *= 2
+        curr_dim *= 2
 
         # Bottleneck layers.
         for i in range(repeat_num):
@@ -119,10 +154,15 @@ class Generator(nn.Module):
     #     return self.main(x)
 
     def forward(self, src, trg):
+        # src_embed has dim (mb, 256, 9, L)
         src_embed = self.src_downsample(src)
+        # trg_embed has dim (mb, 256, 9, 1)
         trg_embed = self.trg_downsample(trg)
         #concat = torch.cat([src_embed, trg_embed], dim=1)
-        concat = torch.cat([src_embed, trg_embed], dim=3)
+        #concat = torch.cat([src_embed, trg_embed], dim=3)
+        trg_embed_tiled = trg_embed.repeat(1, 1, 1, src_embed.size(3))
+        # concat has dim (mb, 512, 9, L)
+        concat = torch.cat([src_embed, trg_embed_tiled], dim=1)
         return self.main(concat)
 
 

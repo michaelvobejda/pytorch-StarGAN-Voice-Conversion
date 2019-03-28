@@ -248,6 +248,8 @@ class Solver(object):
             # Compute loss with fake mc feats.
             # TODO: replace spk_c_trg with mfcc
             #mc_fake = self.G(mc_real, spk_c_trg)
+            import pdb
+            pdb.set_trace()
             mc_fake = self.G(mc_real, spk_trg_mcs)
             out_src, out_cls_spks = self.D(mc_fake.detach())
             d_loss_fake = torch.mean(out_src)
