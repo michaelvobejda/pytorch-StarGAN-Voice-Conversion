@@ -117,6 +117,43 @@ def test(config):
                 librosa.output.write_wav(join(config.convert_dir, str(config.resume_iters), f'cpsyn-{wav_name}'), wav_cpsyn, sampling_rate)
 
 
+# def convert(G, ):
+#
+#     sampling_rate, num_mcep, frame_period = 16000, 36, 5
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#
+#
+#     with torch.no_grad():
+#         for idx, wav in enumerate(test_wavs):
+#             print(len(wav))
+#             wav_name = basename(test_wavfiles[idx])
+#             # print(wav_name)
+#             f0, timeaxis, sp, ap = world_decompose(wav=wav, fs=sampling_rate, frame_period=frame_period)
+#             f0_converted = pitch_conversion(f0=f0,
+#                 mean_log_src=test_loader.logf0s_mean_src, std_log_src=test_loader.logf0s_std_src,
+#                 mean_log_target=test_loader.logf0s_mean_trg, std_log_target=test_loader.logf0s_std_trg)
+#             coded_sp = world_encode_spectral_envelop(sp=sp, fs=sampling_rate, dim=num_mcep)
+#             print("Before being fed into G: ", coded_sp.shape)
+#             coded_sp_norm = (coded_sp - test_loader.mcep_mean_src) / test_loader.mcep_std_src
+#             coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(device)
+#             spk_conds = torch.FloatTensor(test_loader.spk_c_trg).to(device)
+#             # print(spk_conds.size())
+#             coded_sp_converted_norm = G(coded_sp_norm_tensor, spk_conds).data.cpu().numpy()
+#             coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * test_loader.mcep_std_trg + test_loader.mcep_mean_trg
+#             coded_sp_converted = np.ascontiguousarray(coded_sp_converted)
+#             print("After being fed into G: ", coded_sp_converted.shape)
+#             wav_transformed = world_speech_synthesis(f0=f0_converted, coded_sp=coded_sp_converted,
+#                                                      ap=ap, fs=sampling_rate, frame_period=frame_period)
+#             wav_id = wav_name.split('.')[0]
+#             librosa.output.write_wav(join(config.convert_dir, str(config.resume_iters),
+#                 f'{wav_id}-vcto-{test_loader.trg_spk}.wav'), wav_transformed, sampling_rate)
+#             if True:
+#                 wav_cpsyn = world_speech_synthesis(f0=f0, coded_sp=coded_sp,
+#                                                 ap=ap, fs=sampling_rate, frame_period=frame_period)
+#                 librosa.output.write_wav(join(config.convert_dir, str(config.resume_iters), f'cpsyn-{wav_name}'), wav_cpsyn, sampling_rate)
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 

@@ -12,11 +12,13 @@ MAX_LEN = 60
 
 def concat_wavs(wavs, out_filepath):
     out = AudioSegment.from_wav(wavs[0])
+    # TODO: repeat for all wavs to get one minute segments to later randomly sample from.
+    i = 0
     for wav in wavs[1:]:
         out += AudioSegment.from_wav(wav)
         if len(out) / 1000 > MAX_LEN:
             break
-    out.export(out_filepath, format='wav')
+    out.export(f'{out_filepath}_{i}.wav', format='wav')
 
 
 def concat_for_all_speakers():
@@ -25,7 +27,7 @@ def concat_for_all_speakers():
         wavs = glob.glob(path + '/*.wav')
         out_dir = 'data/concatted_audio/wav/' + spk
         os.makedirs(out_dir, exist_ok=True)
-        concat_wavs(wavs, out_dir + '/' + spk + '_concatted.wav')
+        concat_wavs(wavs, out_dir + '/' + spk + '_concatted')
 
 
 def create_mc():
