@@ -160,11 +160,13 @@ class Solver(object):
         train_loader = self.train_loader
 
         data_iter = iter(train_loader)
+    
+        # import pdb
+        # pdb.set_trace()
 
         # Read a batch of testdata
         test_wavfiles = self.test_loader.get_batch_test_data(batch_size=4)
         test_wavs = [self.load_wav(wavfile) for wavfile in test_wavfiles]
-
         # Determine whether do copysynthesize when first do training-time conversion test.
         cpsyn_flag = [True, False][0]
         # f0, timeaxis, sp, ap = world_decompose(wav = wav, fs = sampling_rate, frame_period = frame_period)
@@ -209,21 +211,27 @@ class Solver(object):
             spk_c_trg = spk_c_trg.to(self.device)                     # Target spk conditioning.
 
             # TODO: turn spc_c_trg into mfcc
-            spk_trg_names = [data_loader.idx2spk[idx] for idx in spk_label_trg.data.numpy()]
-            spk_trg_mcs = []
-            for spk_trg_name in spk_trg_names:
+            spk_trg_names = [data_loader.idx2spk[idx] for idx in spk_label_trg.data.cpu().numpy()]
+
+            def spk_name_to_mc(spk_trg_name):
                 path = 'data/concatted_audio/mc/' + spk_trg_name + '_concatted.npy'
                 trg_mc = np.load(path)
                 sample_len = 8192
                 assert trg_mc.shape[0] - sample_len >= 0
                 s = np.random.randint(0, trg_mc.shape[0] - sample_len + 1)
-                next_mc = trg_mc[s:s + sample_len, :]
-                #next_mc.unsqueeze_(1)
-                spk_trg_mcs.append(next_mc)
+                mc = trg_mc[s:s + sample_len, :]
+                return mc
 
-            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs)
+            spk_trg_mcs = [spk_name_to_mc(spk_trg_name) for spk_trg_name in spk_trg_names]
+
+#            for spk_trg_name in spk_trg_names:
+                #next_mc.unsqueeze_(1)
+#                spk_trg_mcs.append(next_mc)
+
+            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs).to(self.device)
             spk_trg_mcs.unsqueeze_(1)
             spk_trg_mcs.transpose_(2, 3)
+            print(spk_trg_mcs.shape)
             # import pdb
             # pdb.set_trace()
 
@@ -329,7 +337,18 @@ class Solver(object):
                         conds = torch.FloatTensor(self.test_loader.spk_c_trg).to(self.device)
                         # print(conds.size())
                         # TODO: replace conds with mfcc
-                        coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
+
+                        trg_mc = spk_name_to_mc(self.test_loader.trg_spk)
+                        trg_mc = torch.FloatTensor(trg_mc).to(self.device)
+                        trg_mc.unsqueeze_(0)
+                        trg_mc.unsqueeze_(0)
+                        trg_mc.transpose_(2, 3)
+                        import pdb
+                        pdb.set_trace()
+#            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs).to(self.device)
+
+#                        coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
+                        coded_sp_converted_norm = self.G(coded_sp_norm_tensor, trg_mc).data.cpu().numpy()
                         coded_sp_converted = np.squeeze(coded_sp_converted_norm).T * self.test_loader.mcep_std_trg + self.test_loader.mcep_mean_trg
                         coded_sp_converted = np.ascontiguousarray(coded_sp_converted)
                         # decoded_sp_converted = world_decode_spectral_envelop(coded_sp = coded_sp_converted, fs = sampling_rate)

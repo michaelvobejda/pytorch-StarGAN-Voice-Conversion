@@ -80,7 +80,7 @@ class Generator(nn.Module):
 
         main_layers = []
         # Multiply dim by 2 since we concat the src and trg vectors.
-        curr_dim *= 2
+        #curr_dim *= 2
 
         # Bottleneck layers.
         for i in range(repeat_num):
@@ -121,7 +121,8 @@ class Generator(nn.Module):
     def forward(self, src, trg):
         src_embed = self.src_downsample(src)
         trg_embed = self.trg_downsample(trg)
-        concat = torch.cat([src_embed, trg_embed], dim=1)
+        #concat = torch.cat([src_embed, trg_embed], dim=1)
+        concat = torch.cat([src_embed, trg_embed], dim=3)
         return self.main(concat)
 
 
