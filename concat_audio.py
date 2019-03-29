@@ -18,10 +18,10 @@ def concat_wavs(wavs, out_filepath):
         out += AudioSegment.from_wav(wav)
         if len(out) / 1000 > MAX_LEN:
             break
-    out.export(f'{out_filepath}_{i}.wav', format='wav')
+    out.export(f'{out_filepath}.wav', format='wav')
 
 
-def concat_for_all_speakers():
+def concat_for_all_speakers(speakers):
     for spk in tqdm(speakers):
         path = 'data/VCTK-corpus/wav16/' + spk
         wavs = glob.glob(path + '/*.wav')
@@ -30,7 +30,7 @@ def concat_for_all_speakers():
         concat_wavs(wavs, out_dir + '/' + spk + '_concatted')
 
 
-def create_mc():
+def create_mc(speakers):
     for spk in tqdm(speakers):
         spk_fold_path = 'data/concatted_audio/wav/' + spk
         mc_dir_train = 'data/concatted_audio/mc/'
@@ -38,5 +38,8 @@ def create_mc():
         get_spk_world_feats(spk_fold_path, mc_dir_train, mc_dir_test, sample_rate=16000)
 
 
-#concat_for_all_speakers()
-create_mc()
+print(speakers)
+new_spk = ['p300']
+assert new_spk not in speakers
+#concat_for_all_speakers(new_spk)
+#create_mc(new_spk)
