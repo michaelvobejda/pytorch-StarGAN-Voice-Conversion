@@ -231,7 +231,6 @@ class Solver(object):
             spk_trg_mcs = torch.FloatTensor(spk_trg_mcs).to(self.device)
             spk_trg_mcs.unsqueeze_(1)
             spk_trg_mcs.transpose_(2, 3)
-            print(spk_trg_mcs.shape)
             # import pdb
             # pdb.set_trace()
 
@@ -248,8 +247,6 @@ class Solver(object):
             # Compute loss with fake mc feats.
             # TODO: replace spk_c_trg with mfcc
             #mc_fake = self.G(mc_real, spk_c_trg)
-            import pdb
-            pdb.set_trace()
             mc_fake = self.G(mc_real, spk_trg_mcs)
             out_src, out_cls_spks = self.D(mc_fake.detach())
             d_loss_fake = torch.mean(out_src)
@@ -337,16 +334,12 @@ class Solver(object):
                         coded_sp_norm = (coded_sp - self.test_loader.mcep_mean_src) / self.test_loader.mcep_std_src
                         coded_sp_norm_tensor = torch.FloatTensor(coded_sp_norm.T).unsqueeze_(0).unsqueeze_(1).to(self.device)
                         conds = torch.FloatTensor(self.test_loader.spk_c_trg).to(self.device)
-                        # print(conds.size())
-                        # TODO: replace conds with mfcc
 
                         trg_mc = spk_name_to_mc(self.test_loader.trg_spk)
                         trg_mc = torch.FloatTensor(trg_mc).to(self.device)
                         trg_mc.unsqueeze_(0)
                         trg_mc.unsqueeze_(0)
                         trg_mc.transpose_(2, 3)
-                        import pdb
-                        pdb.set_trace()
 #            spk_trg_mcs = torch.FloatTensor(spk_trg_mcs).to(self.device)
 
 #                        coded_sp_converted_norm = self.G(coded_sp_norm_tensor, conds).data.cpu().numpy()
